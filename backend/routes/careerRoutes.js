@@ -1,33 +1,26 @@
 const express = require("express");
-const { ObjectId } = require("mongodb");
-const { getDB } = require("../config/db");
+const Career = require("../models/Career");
 
 const router = express.Router();
 
 
 // ========================================
 // GET ALL CAREERS
+// GET /api/admin/careers
 // ========================================
 
 router.get("/", async (req, res) => {
   try {
-    const db = getDB();
+    const careers = await Career.getAllCareers();
 
-    const careers = await db
-      .collection("careers")
-      .find({})
-      .sort({ title: 1 })
-      .toArray();
-
-    res.json({
+    return res.status(200).json({
       success: true,
       careers,
     });
-
   } catch (error) {
     console.error("Get careers error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to load careers",
     });
@@ -36,33 +29,19 @@ router.get("/", async (req, res) => {
 
 
 // ========================================
-// GET SINGLE CAREER
+// GET SINGLE CAREER BY ID OR SLUG
+// GET /api/admin/careers/:id
 // ========================================
 
 router.get("/:id", async (req, res) => {
   try {
-    const db = getDB();
-
     const { id } = req.params;
 
-    let career;
+    let career = await Career.getCareerById(id);
 
-    // MongoDB ObjectId se search
-    if (ObjectId.isValid(id)) {
-      career = await db
-        .collection("careers")
-        .findOne({
-          _id: new ObjectId(id),
-        });
-    }
-
-    // Agar ID nahi mila to slug se search
+    // ID se career nahi mila to slug se search karo
     if (!career) {
-      career = await db
-        .collection("careers")
-        .findOne({
-          slug: id,
-        });
+      career = await Career.getCareerBySlug(id);
     }
 
     if (!career) {
@@ -72,15 +51,14 @@ router.get("/:id", async (req, res) => {
       });
     }
 
-    res.json({
+    return res.status(200).json({
       success: true,
       career,
     });
-
   } catch (error) {
     console.error("Get career error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to load career",
     });
@@ -89,13 +67,12 @@ router.get("/:id", async (req, res) => {
 
 
 // ========================================
-// ADD CAREER
+// ADD NEW CAREER
+// POST /api/admin/careers
 // ========================================
 
 router.post("/", async (req, res) => {
   try {
-    const db = getDB();
-
     const {
       title,
       slug,
@@ -110,18 +87,25 @@ router.post("/", async (req, res) => {
       jobRoles,
     } = req.body;
 
-    if (!title || !slug || !category) {
+    // Required fields validation
+    if (
+      typeof title !== "string" ||
+      !title.trim() ||
+      typeof slug !== "string" ||
+      !slug.trim() ||
+      typeof category !== "string" ||
+      !category.trim()
+    ) {
       return res.status(400).json({
         success: false,
         message: "Title, slug and category are required",
       });
     }
 
-    const existing = await db
-      .collection("careers")
-      .findOne({
-        slug: slug.trim().toLowerCase(),
-      });
+    const cleanSlug = slug.trim().toLowerCase();
+
+    // Duplicate slug check
+    const existing = await Career.getCareerBySlug(cleanSlug);
 
     if (existing) {
       return res.status(409).json({
@@ -132,59 +116,35 @@ router.post("/", async (req, res) => {
 
     const career = {
       title: title.trim(),
-      slug: slug.trim().toLowerCase(),
+      slug: cleanSlug,
       category: category.trim(),
-
-      // Career card icon
       icon: icon || "🎯",
-
-      // Main information
       description: description || "",
       education: education || "",
-
-      // Skills
-      skills: Array.isArray(skills)
-        ? skills
-        : [],
-
-      // Courses
-      courses: Array.isArray(courses)
-        ? courses
-        : [],
-
-      // Career roadmap
-      roadmap: Array.isArray(roadmap)
-        ? roadmap
-        : [],
-
-      // Optional career information
+      skills: Array.isArray(skills) ? skills : [],
+      courses: Array.isArray(courses) ? courses : [],
+      roadmap: Array.isArray(roadmap) ? roadmap : [],
       salary: salary || "",
-      jobRoles: Array.isArray(jobRoles)
-        ? jobRoles
-        : [],
-
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      jobRoles: Array.isArray(jobRoles) ? jobRoles : [],
     };
 
-    const result = await db
-      .collection("careers")
-      .insertOne(career);
+    const result = await Career.createCareer(career);
 
-    res.status(201).json({
+    // Model se generated timestamps aur ID response mein bhejo
+    return res.status(201).json({
       success: true,
       message: "Career added successfully",
-
       career: {
         ...career,
         _id: result.insertedId,
+        createdAt: result.createdAt,
+        updatedAt: result.updatedAt,
       },
     });
-
   } catch (error) {
     console.error("Add career error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to add career",
     });
@@ -194,20 +154,12 @@ router.post("/", async (req, res) => {
 
 // ========================================
 // UPDATE CAREER
+// PUT /api/admin/careers/:id
 // ========================================
 
 router.put("/:id", async (req, res) => {
   try {
-    const db = getDB();
-
     const { id } = req.params;
-
-    if (!ObjectId.isValid(id)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid career ID",
-      });
-    }
 
     const {
       title,
@@ -223,49 +175,68 @@ router.put("/:id", async (req, res) => {
       jobRoles,
     } = req.body;
 
-    const updatedCareer = {
-      title: title ? title.trim() : "",
-      slug: slug
-        ? slug.trim().toLowerCase()
-        : "",
-      category: category ? category.trim() : "",
+    // Sirf request mein bheje gaye fields update honge
+    const updates = {};
 
-      icon: icon || "🎯",
+    if (title !== undefined) {
+      if (typeof title !== "string" || !title.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Title must be a non-empty string",
+        });
+      }
+      updates.title = title.trim();
+    }
 
-      description: description || "",
-      education: education || "",
+    if (slug !== undefined) {
+      if (typeof slug !== "string" || !slug.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Slug must be a non-empty string",
+        });
+      }
 
-      skills: Array.isArray(skills)
-        ? skills
-        : [],
+      const cleanSlug = slug.trim().toLowerCase();
+      const existing = await Career.getCareerBySlug(cleanSlug);
 
-      courses: Array.isArray(courses)
-        ? courses
-        : [],
+      if (existing && existing._id.toString() !== id) {
+        return res.status(409).json({
+          success: false,
+          message: "Career with this slug already exists",
+        });
+      }
 
-      roadmap: Array.isArray(roadmap)
-        ? roadmap
-        : [],
+      updates.slug = cleanSlug;
+    }
 
-      salary: salary || "",
+    if (category !== undefined) {
+      if (typeof category !== "string" || !category.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Category must be a non-empty string",
+        });
+      }
+      updates.category = category.trim();
+    }
 
-      jobRoles: Array.isArray(jobRoles)
-        ? jobRoles
-        : [],
+    if (icon !== undefined) updates.icon = icon;
+    if (description !== undefined) updates.description = description;
+    if (education !== undefined) updates.education = education;
+    if (skills !== undefined) updates.skills = skills;
+    if (courses !== undefined) updates.courses = courses;
+    if (roadmap !== undefined) updates.roadmap = roadmap;
+    if (salary !== undefined) updates.salary = salary;
+    if (jobRoles !== undefined) updates.jobRoles = jobRoles;
 
-      updatedAt: new Date(),
-    };
+    // Empty update request reject karo
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No career fields provided for update",
+      });
+    }
 
-    const result = await db
-      .collection("careers")
-      .updateOne(
-        {
-          _id: new ObjectId(id),
-        },
-        {
-          $set: updatedCareer,
-        }
-      );
+    const result = await Career.updateCareer(id, updates);
 
     if (result.matchedCount === 0) {
       return res.status(404).json({
@@ -274,15 +245,21 @@ router.put("/:id", async (req, res) => {
       });
     }
 
-    res.json({
+    return res.status(200).json({
       success: true,
       message: "Career updated successfully",
     });
-
   } catch (error) {
     console.error("Update career error:", error);
 
-    res.status(500).json({
+    if (error.message === "Invalid career ID") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid career ID",
+      });
+    }
+
+    return res.status(500).json({
       success: false,
       message: "Failed to update career",
     });
@@ -292,26 +269,14 @@ router.put("/:id", async (req, res) => {
 
 // ========================================
 // DELETE CAREER
+// DELETE /api/admin/careers/:id
 // ========================================
 
 router.delete("/:id", async (req, res) => {
   try {
-    const db = getDB();
-
     const { id } = req.params;
 
-    if (!ObjectId.isValid(id)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid career ID",
-      });
-    }
-
-    const result = await db
-      .collection("careers")
-      .deleteOne({
-        _id: new ObjectId(id),
-      });
+    const result = await Career.deleteCareer(id);
 
     if (result.deletedCount === 0) {
       return res.status(404).json({
@@ -320,20 +285,25 @@ router.delete("/:id", async (req, res) => {
       });
     }
 
-    res.json({
+    return res.status(200).json({
       success: true,
       message: "Career deleted successfully",
     });
-
   } catch (error) {
     console.error("Delete career error:", error);
 
-    res.status(500).json({
+    if (error.message === "Invalid career ID") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid career ID",
+      });
+    }
+
+    return res.status(500).json({
       success: false,
       message: "Failed to delete career",
     });
   }
 });
-
 
 module.exports = router;
