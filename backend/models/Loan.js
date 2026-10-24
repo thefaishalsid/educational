@@ -1,37 +1,86 @@
 const { ObjectId } = require("mongodb");
 const { getDB } = require("../config/db");
 
-const collection = () => getDB().collection("loans");
+// =====================================================
+// LOAN ENQUIRY MODEL
+// Uses the existing "loanEnquiries" collection
+// =====================================================
 
-async function createLoan(data) {
-  return await collection().insertOne({
-    ...data,
-    status: data.status || "pending",
+async function createLoanEnquiry(enquiryData) {
+  const db = getDB();
+
+  const enquiry = {
+    name: enquiryData.name,
+    email: enquiryData.email,
+    phone: enquiryData.phone,
+    enquiryType: "Education Loan",
+    message: enquiryData.message,
+    createdAt: new Date()
+  };
+
+  return await db.collection("loanEnquiries").insertOne(enquiry);
+}
+
+async function getAllLoanEnquiries() {
+  const db = getDB();
+
+  return await db
+    .collection("loanEnquiries")
+    .find({})
+    .sort({ createdAt: -1 })
+    .toArray();
+}
+
+async function deleteLoanEnquiry(id) {
+  if (!ObjectId.isValid(id)) {
+    throw new Error("Invalid enquiry ID");
+  }
+
+  const db = getDB();
+
+  return await db
+    .collection("loanEnquiries")
+    .deleteOne({ _id: new ObjectId(id) });
+}
+
+// =====================================================
+// EXISTING LOAN APPLICATION MODEL
+// Keeps the separate "loans" collection methods
+// =====================================================
+
+async function createLoan(loanData) {
+  const db = getDB();
+
+  const loan = {
+    ...loanData,
+    status: loanData.status || "pending",
     createdAt: new Date(),
-    updatedAt: new Date(),
-  });
+    updatedAt: new Date()
+  };
+
+  return await db.collection("loans").insertOne(loan);
 }
 
 async function getLoanById(id) {
   if (!ObjectId.isValid(id)) return null;
 
-  return await collection().findOne({
-    _id: new ObjectId(id),
-  });
+  const db = getDB();
+
+  return await db
+    .collection("loans")
+    .findOne({ _id: new ObjectId(id) });
 }
 
 async function getLoansByUser(userId) {
-  return await collection()
-    .find({ userId })
-    .sort({ createdAt: -1 })
-    .toArray();
+  const db = getDB();
+
+  return await db.collection("loans").find({ userId }).toArray();
 }
 
 async function getAllLoans() {
-  return await collection()
-    .find({})
-    .sort({ createdAt: -1 })
-    .toArray();
+  const db = getDB();
+
+  return await db.collection("loans").find({}).toArray();
 }
 
 async function updateLoan(id, updates) {
@@ -44,7 +93,7 @@ async function updateLoan(id, updates) {
     "purpose",
     "applicantDetails",
     "documents",
-    "status",
+    "status"
   ];
 
   const safeUpdates = {};
@@ -55,9 +104,15 @@ async function updateLoan(id, updates) {
     }
   }
 
+  if (Object.keys(safeUpdates).length === 0) {
+    return { matchedCount: 0, modifiedCount: 0 };
+  }
+
   safeUpdates.updatedAt = new Date();
 
-  return await collection().updateOne(
+  const db = getDB();
+
+  return await db.collection("loans").updateOne(
     { _id: new ObjectId(id) },
     { $set: safeUpdates }
   );
@@ -68,16 +123,21 @@ async function deleteLoan(id) {
     throw new Error("Invalid loan ID");
   }
 
-  return await collection().deleteOne({
-    _id: new ObjectId(id),
-  });
+  const db = getDB();
+
+  return await db
+    .collection("loans")
+    .deleteOne({ _id: new ObjectId(id) });
 }
 
 module.exports = {
+  createLoanEnquiry,
+  getAllLoanEnquiries,
+  deleteLoanEnquiry,
   createLoan,
   getLoanById,
   getLoansByUser,
   getAllLoans,
   updateLoan,
-  deleteLoan,
+  deleteLoan
 };
