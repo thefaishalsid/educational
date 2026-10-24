@@ -1,5 +1,6 @@
 const express = require("express");
 const { getDB } = require("../config/db");
+const User = require("../models/User");
 
 const router = express.Router();
 
@@ -45,7 +46,7 @@ router.post("/register", async (req, res) => {
     }
 
     // ----------------------------------------
-    // CREATE USER
+    // CREATE USER USING MODEL
     // ----------------------------------------
 
     const newUser = {
@@ -53,12 +54,9 @@ router.post("/register", async (req, res) => {
       email: cleanEmail,
       password: password,
       role: "user",
-      createdAt: new Date(),
     };
 
-    const result = await db
-      .collection("users")
-      .insertOne(newUser);
+    const result = await User.createUser(newUser);
 
     console.log("--------------------------------");
     console.log("NEW USER REGISTERED");
@@ -137,18 +135,6 @@ router.post("/login", async (req, res) => {
     // CHECK ADMIN
     // ========================================
 
-    /*
-      Using regex with "i" makes email matching
-      case-insensitive.
-
-      Example:
-      Admin@gmail.com
-      admin@gmail.com
-      ADMIN@GMAIL.COM
-
-      All will match.
-    */
-
     const admin = await db
       .collection("admins")
       .findOne({
@@ -160,7 +146,6 @@ router.post("/login", async (req, res) => {
 
     console.log("ADMIN FOUND:", !!admin);
 
-    // Debug actual admin document
     if (admin) {
       console.log("ADMIN EMAIL IN DB:", admin.email);
       console.log("ADMIN NAME:", admin.name);
@@ -187,10 +172,6 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // ----------------------------------------
-    // ADMIN EMAIL FOUND BUT PASSWORD WRONG
-    // ----------------------------------------
-
     if (admin && admin.password !== password) {
       console.log("ADMIN FOUND BUT PASSWORD IS WRONG");
     }
@@ -199,11 +180,7 @@ router.post("/login", async (req, res) => {
     // CHECK NORMAL USER
     // ========================================
 
-    const user = await db
-      .collection("users")
-      .findOne({
-        email: cleanEmail,
-      });
+    const user = await User.findUserByEmail(cleanEmail);
 
     console.log("USER FOUND:", !!user);
 
