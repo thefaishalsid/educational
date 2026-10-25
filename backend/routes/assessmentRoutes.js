@@ -1,5 +1,5 @@
 const express = require("express");
-const { getDB } = require("../config/db");
+const Assignment = require("../models/Assignment");
 const OpenAI = require("openai");
 
 const router = express.Router();
@@ -77,12 +77,10 @@ Do not include any text outside the JSON.
       throw new Error("Invalid AI recommendations format");
     }
 
-    const db = getDB();
-
-    const result = await db.collection("assessments").insertOne({
+    // Save assessment using the Assignment model
+    const result = await Assignment.createAssessment({
       ...assessmentData,
       recommendations,
-      createdAt: new Date(),
     });
 
     console.log("Assessment saved:", result.insertedId);

@@ -4,10 +4,12 @@ const { getDB } = require("../config/db");
 const collection = () => getDB().collection("assessments");
 
 async function createAssessment(data) {
+  const now = new Date();
+
   return await collection().insertOne({
     ...data,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: now,
+    updatedAt: now,
   });
 }
 
