@@ -957,7 +957,7 @@ function JobManager({ type, goBack }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const baseURL = `${API_URL}/jobs/${type}`;
+  const baseURL = `${API_URL}/api/admin/jobs/${type}`;
 
   // =====================================================
   // FETCH JOBS
