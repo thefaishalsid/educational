@@ -2,6 +2,12 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/adminDashboard.css";
 
+// API URL: Live Render backend
+const API_URL = (
+  import.meta.env.VITE_API_URL ||
+  "https://educational-backend23.onrender.com"
+).replace(/\/+$/, "");
+
 function AdminCareers() {
   const navigate = useNavigate();
 
@@ -33,7 +39,7 @@ function AdminCareers() {
       setError("");
 
       const response = await fetch(
-        "http://localhost:5000/api/admin/careers"
+        `${API_URL}/api/admin/careers`
       );
 
       const data = await response.json();
@@ -145,8 +151,8 @@ function AdminCareers() {
       };
 
       const url = editingId
-        ? `http://localhost:5000/api/admin/careers/${editingId}`
-        : "http://localhost:5000/api/admin/careers";
+        ? `${API_URL}/api/admin/careers/${editingId}`
+        : `${API_URL}/api/admin/careers`;
 
       const method = editingId ? "PUT" : "POST";
 
@@ -173,7 +179,7 @@ function AdminCareers() {
       );
 
       resetForm();
-      fetchCareers();
+      await fetchCareers();
     } catch (err) {
       console.error("Career save error:", err);
       setError(err.message || "Career save nahi ho paayi.");
@@ -192,8 +198,10 @@ function AdminCareers() {
     if (!confirmDelete) return;
 
     try {
+      setError("");
+
       const response = await fetch(
-        `http://localhost:5000/api/admin/careers/${id}`,
+        `${API_URL}/api/admin/careers/${id}`,
         {
           method: "DELETE",
         }
@@ -209,10 +217,10 @@ function AdminCareers() {
 
       alert("Career deleted successfully!");
 
-      fetchCareers();
+      await fetchCareers();
     } catch (err) {
       console.error("Career delete error:", err);
-      setError("Career delete nahi ho paayi.");
+      setError(err.message || "Career delete nahi ho paayi.");
     }
   };
 
@@ -222,21 +230,16 @@ function AdminCareers() {
       {/* HEADER */}
 
       <header className="admin-header">
-
         <div>
-
           <span className="admin-label">
             WEBSITE
           </span>
 
-          <h1>
-            Career Management
-          </h1>
+          <h1>Career Management</h1>
 
           <p>
             Add, edit and delete career information.
           </p>
-
         </div>
 
         <button
@@ -245,9 +248,7 @@ function AdminCareers() {
         >
           ← Dashboard
         </button>
-
       </header>
-
 
       {/* ERROR */}
 
@@ -256,7 +257,6 @@ function AdminCareers() {
           {error}
         </div>
       )}
-
 
       {/* ADD BUTTON */}
 
@@ -270,24 +270,17 @@ function AdminCareers() {
         </button>
       )}
 
-
       {/* FORM */}
 
       {showForm && (
-
         <div className="content-card">
-
           <h2>
-            {editingId
-              ? "Edit Career"
-              : "Add New Career"}
+            {editingId ? "Edit Career" : "Add New Career"}
           </h2>
 
           <form onSubmit={handleSubmit}>
-
             <div className="input-group">
               <label>Career Title</label>
-
               <input
                 type="text"
                 name="title"
@@ -298,10 +291,8 @@ function AdminCareers() {
               />
             </div>
 
-
             <div className="input-group">
               <label>Slug</label>
-
               <input
                 type="text"
                 name="slug"
@@ -312,10 +303,8 @@ function AdminCareers() {
               />
             </div>
 
-
             <div className="input-group">
               <label>Category</label>
-
               <input
                 type="text"
                 name="category"
@@ -326,10 +315,8 @@ function AdminCareers() {
               />
             </div>
 
-
             <div className="input-group">
               <label>Description</label>
-
               <textarea
                 name="description"
                 value={form.description}
@@ -340,10 +327,8 @@ function AdminCareers() {
               />
             </div>
 
-
             <div className="input-group">
               <label>Education</label>
-
               <textarea
                 name="education"
                 value={form.education}
@@ -354,13 +339,11 @@ function AdminCareers() {
               />
             </div>
 
-
             <div className="input-group">
               <label>
                 Skills
                 <small> (comma separated)</small>
               </label>
-
               <input
                 type="text"
                 name="skills"
@@ -370,13 +353,11 @@ function AdminCareers() {
               />
             </div>
 
-
             <div className="input-group">
               <label>
                 Courses
                 <small> (comma separated)</small>
               </label>
-
               <input
                 type="text"
                 name="courses"
@@ -386,13 +367,11 @@ function AdminCareers() {
               />
             </div>
 
-
             <div className="input-group">
               <label>
                 Roadmap
                 <small> (one step per line)</small>
               </label>
-
               <textarea
                 name="roadmap"
                 value={form.roadmap}
@@ -405,16 +384,12 @@ Build projects`}
               />
             </div>
 
-
             <div style={{ display: "flex", gap: "10px" }}>
-
               <button
                 type="submit"
                 className="content-btn"
               >
-                {editingId
-                  ? "Update Career"
-                  : "Add Career"}
+                {editingId ? "Update Career" : "Add Career"}
               </button>
 
               <button
@@ -424,118 +399,67 @@ Build projects`}
               >
                 Cancel
               </button>
-
             </div>
-
           </form>
-
         </div>
       )}
-
 
       {/* CAREER LIST */}
 
       {!showForm && (
-
         <div className="content-card">
-
-          <h2>
-            All Careers
-          </h2>
+          <h2>All Careers</h2>
 
           {loading ? (
-
             <div className="empty-state">
               <h3>Loading careers...</h3>
             </div>
-
           ) : careers.length === 0 ? (
-
             <div className="empty-state">
-
-              <div className="empty-icon">
-                🎓
-              </div>
-
-              <h3>
-                No careers found
-              </h3>
-
-              <p>
-                Add your first career.
-              </p>
-
+              <div className="empty-icon">🎓</div>
+              <h3>No careers found</h3>
+              <p>Add your first career.</p>
             </div>
-
           ) : (
-
             <div className="assessment-list">
-
               {careers.map((career) => (
-
                 <div
                   className="assessment-row"
                   key={career._id}
                 >
-
                   <div className="student-avatar">
                     🎓
                   </div>
 
                   <div className="assessment-info">
-
-                    <strong>
-                      {career.title}
-                    </strong>
-
-                    <span>
-                      {career.category}
-                    </span>
-
+                    <strong>{career.title}</strong>
+                    <span>{career.category}</span>
                   </div>
 
                   <div className="assessment-career">
-
-                    <span>
-                      Slug
-                    </span>
-
-                    <strong>
-                      {career.slug}
-                    </strong>
-
+                    <span>Slug</span>
+                    <strong>{career.slug}</strong>
                   </div>
 
                   <button
                     className="content-btn"
-                    onClick={() =>
-                      handleEdit(career)
-                    }
+                    onClick={() => handleEdit(career)}
                   >
                     Edit
                   </button>
 
                   <button
                     className="content-btn"
-                    onClick={() =>
-                      handleDelete(career._id)
-                    }
+                    onClick={() => handleDelete(career._id)}
                   >
                     Delete
                   </button>
-
                 </div>
-
               ))}
-
             </div>
-
           )}
-
         </div>
-
       )}
-
     </section>
   );
 }
