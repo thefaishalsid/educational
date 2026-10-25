@@ -1,5 +1,5 @@
 const express = require("express");
-const Assignment = require("../models/Assignment");
+const Assessment = require("../models/Assessment");
 const OpenAI = require("openai");
 
 const router = express.Router();
@@ -27,7 +27,7 @@ Qualification: ${assessmentData.qualification || "Not provided"}
 Stream: ${assessmentData.stream || "Not provided"}
 Marks: ${assessmentData.marks || "Not provided"}
 Passing Year: ${assessmentData.passingYear || "Not provided"}
-Interests: ${(assessmentData.interests || []).join(", ") || "Not provided"}
+Interests: ${(Array.isArray(assessmentData.interests) ? assessmentData.interests : []).join(", ") || "Not provided"}
 Skills: ${assessmentData.skills || "Not provided"}
 Budget: ${assessmentData.budget || "Not provided"}
 Goal: ${assessmentData.goal || "Not provided"}
@@ -56,36 +56,38 @@ Do not include any text outside the JSON.
     const response = await client.responses.create({
       model: "gpt-5.6-luna",
       input: prompt,
-      // temperature: 0.4,
     });
 
     const aiResponse = response.output_text;
 
     console.log("AI Response:", aiResponse);
 
+    if (!aiResponse) {
+      throw new Error("AI returned an empty response");
+    }
+
     // Remove possible markdown code fences
     const cleanedResponse = aiResponse
-      .replace(/```json/g, "")
+      .replace(/```json/gi, "")
       .replace(/```/g, "")
       .trim();
 
     const parsedAI = JSON.parse(cleanedResponse);
-
     const recommendations = parsedAI.recommendations;
 
-    if (!Array.isArray(recommendations)) {
-      throw new Error("Invalid AI recommendations format");
+    if (!Array.isArray(recommendations) || recommendations.length !== 3) {
+      throw new Error("AI did not return exactly 3 recommendations");
     }
 
-    // Save assessment using the Assignment model
-    const result = await Assignment.createAssessment({
+    // Save assessment using the Assessment model
+    const result = await Assessment.createAssessment({
       ...assessmentData,
       recommendations,
     });
 
     console.log("Assessment saved:", result.insertedId);
 
-    res.json({
+    return res.json({
       success: true,
       message: "Assessment analyzed successfully",
       id: result.insertedId,
@@ -93,9 +95,9 @@ Do not include any text outside the JSON.
     });
 
   } catch (error) {
-    console.error("AI Assessment Error:", error.message);
+    console.error("AI Assessment Error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to analyze assessment",
     });
