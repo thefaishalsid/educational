@@ -400,7 +400,7 @@ function CareerManager({ goBack }) {
       setLoading(true);
       setError("");
 
-      const response = await fetch(`${API_URL}/careers`);
+      const response = await fetch(`${API_URL}/api/admin/careers`);
       const data = await response.json();
 
       if (!data.success) {
@@ -463,8 +463,8 @@ function CareerManager({ goBack }) {
       };
 
       const url = editingId
-        ? `${API_URL}/careers/${editingId}`
-        : `${API_URL}/careers`;
+        ? `${API_URL}/api/admin/careers/${editingId}`
+        : `${API_URL}/api/admin/careers`;
 
       const method = editingId ? "PUT" : "POST";
 
@@ -536,7 +536,7 @@ function CareerManager({ goBack }) {
 
     try {
       const response = await fetch(
-        `${API_URL}/careers/${id}`,
+        `${API_URL}/api/admin/careers/${id}`,
         {
           method: "DELETE",
         }
